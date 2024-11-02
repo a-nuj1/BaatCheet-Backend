@@ -128,33 +128,77 @@ const addMembers = TryCatch(async(req, res, next)=>{
 const removeMembers = TryCatch(async(req, res, next)=>{
     const {userId, chatId} = req.body;
 
-    const {chat, userWhoWillBeRemoved} = await Promise.all([
+    const [chat, userWhoWillBeRemoved] = await Promise.all([
         Chat.findById(chatId),
         User.findById(userId, "name")
     ])
 
-    if(!chat) return next(new ErrorHandler('Chat not found', 404));
+    if(!chat) return next(new ErrorHandler('Chat not Found..', 404));
     if(!chat.groupChat)return next(new ErrorHandler('This is not a group chat', 400));
 
-    if(chat.creator.toString() !== req.user.toString()) return next(new ErrorHandler('You are not authorized to add members', 403));
+    if(chat.creator.toString() !== req.user.toString()) return next(new ErrorHandler('You are not authorized to remove members', 403));
 
     if(chat.members.length <= 3)return next(new ErrorHandler("Group must have at least 3 mebers", 400));
 
 
-    chat.members = chat.members.fillter((member) =>member.toString() != userId.toString());
+    chat.members = chat.members.filter((member) =>member.toString() != userId.toString());
 
 
     await chat.save();
 
-    emitEvent(req, ALERT, chat.member, `${userWhoWillBeRemoved.name} has been removed from the group`);
+    emitEvent(req, ALERT, chat.members, `${userWhoWillBeRemoved.name} has been removed from the group`);
 
 
     emitEvent(req, REFETCH_CHATS, chat.members);
 
     return res.status(200).json({
         success: true,
-        message: "Members removed Successfully"
+        message: "Member removed Successfully"
     })
 })
 
-export {newGroup, getMyChats, getMyGroups, addMembers, removeMembers};
+const leaveGroup = TryCatch(async(req, res, next)=>{
+    const chatId = req.params.id;
+
+    const chat = await Chat.findById(chatId);
+
+    if(!chat)return next(new ErrorHandler("Chat not found..", 404));
+
+    if(!chat.groupChat)return next(new ErrorHandler("This is not a group chat...", 400));
+
+    const remainingMem = chat.members.filter((member) =>member.toString() !== req.user.toString());
+
+    if(remainingMem.length < 3){
+        return next(new ErrorHandler("Group must have at least 3 members", 400));
+    }
+
+
+    if(chat.creator.toString() === req.user.toString()){
+        // const newAdmin = remainingMem[0]; // new admin will be the first member in the group
+
+        // if want to choose admin randomly
+        const randomIndex = Math.floor(Math.random() * remainingMem.length);
+        const newAdmin = remainingMem[randomIndex];
+
+        chat.creator = newAdmin;
+    }
+
+    chat.members = remainingMem;
+    const [user] = await Promise.all([
+        User.findById(req.user, "name"),
+        chat.save()
+    ]);
+
+    // await chat.save();
+
+
+    emitEvent(req, ALERT, chat.members, `User ${user.name} has left the group`);
+
+    return res.status(200).json({
+        success: true,
+        message: "You have left the group"
+    })
+
+})
+
+export {newGroup, getMyChats, getMyGroups, addMembers, removeMembers, leaveGroup};
