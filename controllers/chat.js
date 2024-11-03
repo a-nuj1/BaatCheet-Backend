@@ -2,8 +2,9 @@ import { TryCatch } from "../middlewares/error.js";
 import { ErrorHandler } from "../utils/utility.js";
 import  Chat from '../models/chat.js'
 import User from "../models/user.js"
+import Message from "../models/message.js"
 import { emitEvent } from "../utils/features.js";
-import {ALERT, REFETCH_CHATS} from '../constants/events.js'
+import {ALERT, NEW_ATTACHMENT, NEW_MESSAGE_ALERT, REFETCH_CHATS} from '../constants/events.js'
 import { getOtherMembers } from "../lib/helper.js";
 
 
@@ -201,4 +202,55 @@ const leaveGroup = TryCatch(async(req, res, next)=>{
 
 })
 
-export {newGroup, getMyChats, getMyGroups, addMembers, removeMembers, leaveGroup};
+const sendAttachments = TryCatch(async(req, res, next)=>{
+    const {chatId} = req.body;
+
+    const [chat, me] = await Promise.all([
+        Chat.findById(chatId), 
+        User.findById(req.user, "name")]);
+
+    if(!chat)return next(new ErrorHandler("Chat not found..", 404));
+
+    const files = req.files || [];
+
+    if(files.length < 1)return next(new ErrorHandler("Please provide attachments", 400));
+
+    const attachemnts = [];
+
+    const messageForDB = {content: "", attachemnts, sender: me._id, chat: chatId };
+
+    const messageForRealTime = {
+        // content: "",
+        // attachemnts,
+        // sender:{
+        //     _id: me._id,
+        //     name: me.name
+        //     // if want to show avatar in frontend you can take avatar also
+        // },
+        // chat: chatId,
+
+        ...messageForDB,
+        sender:{
+            _id: me._id,
+            name: me.name
+        }
+    };
+
+    const mess = await Message.create(messageForDB);
+
+    emitEvent(req, NEW_ATTACHMENT, chat.members, {
+        message: messageForRealTime,
+        chatId,
+    });
+
+    emitEvent(req, NEW_MESSAGE_ALERT, chat.members, {
+        chatId,
+    });
+
+    return res.status(200).json({
+        success: true,
+        mess,
+    })
+});
+
+export {newGroup, getMyChats, getMyGroups, addMembers, removeMembers, leaveGroup, sendAttachments};
