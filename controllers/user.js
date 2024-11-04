@@ -42,7 +42,7 @@ const login = TryCatch(async(req, res, next) => {
 
 
 
-  sendTokens(res, user, 200, 'User logged in successfully');
+  sendTokens(res, user, 200, `Welcome back ${user.name}`);
 });
 
 
