@@ -5,7 +5,8 @@ import { errorMiddler } from './middlewares/error.js';
 import cookieParser from 'cookie-parser';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js'
-import { createUser } from './seeders/user.seed.js';
+// import { createMessagesInAChat } from './seeders/chat.js';
+
 
 dotenv.config({
   path:'./.env',
@@ -18,6 +19,10 @@ const MONGO_URI = process.env.MONGO_URI;
 connectDB(MONGO_URI);
 // createUser(10);
 
+// createSingleChats(10);
+// createGroupChats(10);
+
+// createMessagesInAChat("672a19eb04d6da8569fce3f8", 50)
 
 
 app.use(express.json());
@@ -36,4 +41,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running http://localhost:${PORT}`);
 })
-

@@ -15,8 +15,8 @@ import { getOtherMembers } from "../lib/helper.js";
 const newGroup = TryCatch(async (req, res, next) => {
   const { name, members } = req.body;
 
-  if (members.length < 2)
-    return next(new ErrorHandler("Please add at least two members", 400));
+  // if (members.length < 2)
+  //   return next(new ErrorHandler("Please add at least two members", 400));
 
   const allMembers = [...members, req.user];
 
@@ -96,8 +96,8 @@ const getMyGroups = TryCatch(async (req, res, next) => {
 
 const addMembers = TryCatch(async (req, res, next) => {
   const { members, chatId } = req.body;
-  if (!members || members.length < 1)
-    return next(new ErrorHandler("Please provide members", 400));
+  // if (!members || members.length < 1)
+  //   return next(new ErrorHandler("Please provide members", 400));
 
   const chat = await Chat.findById(chatId);
 
@@ -390,6 +390,32 @@ const deleteChat = TryCatch(async(req, res, next)=>{
     })
 })
 
+const getMessages = TryCatch(async (req, res, next) => {
+    const chatId = req.params.id;
+    const { page = 1} = req.query;
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
+    const [messages, totalMessagesCount] = await Promise.all([
+        Message.find({chat: chatId})
+        .sort({createdAt: -1})
+        .skip(skip)
+        .limit(limit)
+        .populate('sender', 'name')
+        .lean(),
+        Message.countDocuments({chat: chatId})
+    ])
+
+    const totalPages = Math.ceil(totalMessagesCount/limit);
+  
+    return res.status(200).json({
+      success: true,
+      messages: messages.reverse(),
+      totalPages,
+    });
+})
+
+
 
 export {
   newGroup,
@@ -401,5 +427,6 @@ export {
   sendAttachments,
   getChatDetails,
   renameGroup,
-  deleteChat
+  deleteChat,
+  getMessages
 };
