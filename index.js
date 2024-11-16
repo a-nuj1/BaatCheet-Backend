@@ -5,6 +5,7 @@ import { errorMiddler } from './middlewares/error.js';
 import cookieParser from 'cookie-parser';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js'
+import adminRoutes from './routes/admin.routes.js';
 // import { createMessagesInAChat } from './seeders/chat.js';
 
 
@@ -31,6 +32,8 @@ app.use(express.urlencoded({extended: true}));
 
 app.use('/user', userRoutes);
 app.use('/chat', chatRoutes)
+app.use('/admin', adminRoutes);
+
 app.use(errorMiddler);
 
 app.get('/', (req, res) => {
