@@ -9,8 +9,12 @@ import { NEW_REQUEST, REFETCH_CHATS } from "../constants/events.js";
 import { getOtherMembers } from "../lib/helper.js";
 
 // creating a new user and saving it to the database
-const newUser = async (req, res) => {
+const newUser = TryCatch(async (req, res, next) => {
   const { name, username, password, bio } = req.body;
+
+  const file = req.file;
+
+  if(!file) return next(new ErrorHandler("Please Upload Avatar", 400));
 
   const avatar = {
     public_id: "abcde",
@@ -26,7 +30,7 @@ const newUser = async (req, res) => {
   });
 
   sendTokens(res, user, 200, "User created successfully");
-};
+});
 
 // logging in a user
 const login = TryCatch(async (req, res, next) => {
