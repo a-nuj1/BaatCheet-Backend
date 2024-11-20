@@ -15,6 +15,7 @@ dotenv.config({
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+export const adminSecretKey = process.env.ADMIN_SECRET_KEY || "adminhu1234";
 const MONGO_URI = process.env.MONGO_URI;
 
 connectDB(MONGO_URI);
