@@ -1,6 +1,6 @@
 import { compare } from "bcrypt";
 import User from "../models/user.js";
-import { cookieOptions, emitEvent, sendTokens } from "../utils/features.js";
+import { cookieOptions, emitEvent, sendTokens, uploadFilesToCloud } from "../utils/features.js";
 import { TryCatch } from "../middlewares/error.js";
 import { ErrorHandler } from "../utils/utility.js";
 import Chat from "../models/chat.js";
@@ -16,9 +16,11 @@ const newUser = TryCatch(async (req, res, next) => {
 
   if(!file) return next(new ErrorHandler("Please Upload Avatar", 400));
 
+  const result = await uploadFilesToCloud([file]);
+
   const avatar = {
-    public_id: "abcde",
-    url: "bcdfdis",
+    public_id: result[0].public_id,
+    url: result[0].url,
   };
 
   const user = await User.create({
@@ -37,6 +39,7 @@ const login = TryCatch(async (req, res, next) => {
   const { username, password } = req.body;
 
   const user = await User.findOne({ username }).select("+password");
+
   if (!user) return next(new ErrorHandler("Invalid Username or Password", 404));
 
   const isMatch = await compare(password, user.password);
@@ -44,7 +47,7 @@ const login = TryCatch(async (req, res, next) => {
   if (!isMatch)
     return next(new ErrorHandler("Invalid Username or Password", 404));
 
-  sendTokens(res, user, 200, `Welcome back ${user.name}`);
+  sendTokens(res, user, 200, `Welcome Back, ${user.name}`);
 });
 
 const getMyProfile = TryCatch(async (req, res,next) => {
