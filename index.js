@@ -8,15 +8,19 @@ import cors from 'cors';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js'
 import adminRoutes from './routes/admin.routes.js';
+
+
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import {v2 as cloudinary} from 'cloudinary'
 
 
-import { NEW_MESSAGE, NEW_MESSAGE_ALERT } from './constants/events.js';
+import { NEW_MESSAGE, NEW_MESSAGE_ALERT, START_TYPING, STOP_TYPING } from './constants/events.js';
 import { v4 as uuid } from 'uuid';
 import { getSockets } from './lib/helper.js';
 import Message from './models/message.js';
+import {corsOptions} from './constants/config.js';
+import { socketAuthenticator } from './middlewares/auth.js';
 
 
 dotenv.config({
@@ -45,19 +49,16 @@ cloudinary.config({
 // createMessagesInAChat("672a19eb04d6da8569fce3f8", 50)
 
 const server = createServer(app);
-const io = new Server(server,{})
+const io = new Server(server,{
+  cors:corsOptions,
+})
+
+app.set('io', io);
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({extended: true}));
-app.use(cors({
-  origin: [
-    "http://localhost:5173", 
-    "http://localhost:4173", 
-    process.env.CLIENT_URL
-  ],
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 
 
 app.use('/api/v1/user', userRoutes);
@@ -69,18 +70,28 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-// socket io functionality
+// socket middleware
+io.use((socket, next) => {
+  cookieParser()(socket.request, socket.request.res, 
+    async(err)=>
+    await socketAuthenticator(err, socket, next)
+  );
+})
 
+
+// socket io functionality
 io.on('connection', (socket) => {
   // temporary user
-  const user = {
-    _id: "aammitumakebhalovashi",
-    name: "Jhethalal",
-  }
+  // const user = {
+  //   _id: "aammitumakebhalovashi",
+  //   name: "Jhethalal",
+  // }
+  const user = socket.user;
+  // console.log('a user connected');
 
   userSockeIDs.set(user._id.toString(), socket.id);
 
-  console.log(userSockeIDs);
+  // console.log(userSockeIDs);
 
   socket.on(NEW_MESSAGE, async({chatId, members, message})=>{
     const messaegForRealTime = {
@@ -101,6 +112,8 @@ io.on('connection', (socket) => {
       chat: chatId,
     }
 
+      // console.log("Emitting", members);
+
     const userSockets = getSockets(members);
     io.to(userSockets).emit(NEW_MESSAGE, {
       chatId,
@@ -111,7 +124,7 @@ io.on('connection', (socket) => {
       chatId,
     })
 
-    // console.log("NEW_MESSAGE",messaegForRealTime);
+    // console.log(userSockets);
     try {
       await Message.create(messageForDB);
     } catch (error) {
@@ -119,6 +132,21 @@ io.on('connection', (socket) => {
       
     }
   })
+
+  socket.on(START_TYPING, ({chatId, members})=>{
+    // console.log("Typing", members, chatId);
+
+    const membersSockets = getSockets(members);
+    socket.to(membersSockets).emit(START_TYPING, {chatId});
+  })
+
+  socket.on(STOP_TYPING, ({chatId, members})=>{
+    // console.log("stopTyping", members, chatId);
+
+    const membersSockets = getSockets(members);
+    socket.to(membersSockets).emit(STOP_TYPING, {chatId});
+  })
+  
   
   socket.on('disconnect', () => {
     console.log('user disconnected');

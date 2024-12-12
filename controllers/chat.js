@@ -3,10 +3,11 @@ import { ErrorHandler } from "../utils/utility.js";
 import Chat from "../models/chat.js";
 import User from "../models/user.js";
 import Message from "../models/message.js";
-import { deleteFilesFromCloud, emitEvent } from "../utils/features.js";
+import { deleteFilesFromCloud, emitEvent, uploadFilesToCloud } from "../utils/features.js";
 import {
   ALERT,
   NEW_ATTACHMENT,
+  NEW_MESSAGE,
   NEW_MESSAGE_ALERT,
   REFETCH_CHATS,
 } from "../constants/events.js";
@@ -228,6 +229,8 @@ const sendAttachments = TryCatch(async (req, res, next)=> {
   const { chatId } = req.body;
 
   const files = req.files || [];
+
+  console.log(files)
   if(files.length < 1){
     return next(new ErrorHandler("Please provide attachments", 400)); 
   }
@@ -247,11 +250,13 @@ const sendAttachments = TryCatch(async (req, res, next)=> {
   if (files.length < 1)
     return next(new ErrorHandler("Please provide attachments", 400));
 
-  const attachemnts = [];
+  // console.log("uploading files",files);
+  const attachments = await uploadFilesToCloud(files);
+  // console.log(attachments);
 
   const messageForDB = {
     content: "",
-    attachemnts,
+    attachments,
     sender: me._id,
     chat: chatId,
   };
@@ -275,7 +280,7 @@ const sendAttachments = TryCatch(async (req, res, next)=> {
 
   const mess = await Message.create(messageForDB);
 
-  emitEvent(req, NEW_ATTACHMENT, chat.members, {
+  emitEvent(req, NEW_MESSAGE, chat.members, {
     message: messageForRealTime,
     chatId,
   });
@@ -399,29 +404,39 @@ const deleteChat = TryCatch(async(req, res, next)=>{
 })
 
 const getMessages = TryCatch(async (req, res, next) => {
-    const chatId = req.params.id;
-    const { page = 1} = req.query;
-    const limit = 20;
-    const skip = (page - 1) * limit;
+  const chatId = req.params.id;
+  const { page = 1 } = req.query;
 
-    const [messages, totalMessagesCount] = await Promise.all([
-        Message.find({chat: chatId})
-        .sort({createdAt: -1})
-        .skip(skip)
-        .limit(limit)
-        .populate('sender', 'name')
-        .lean(),
-        Message.countDocuments({chat: chatId})
-    ])
+  const limit = 20;
+  const skip = (page - 1) * limit;
 
-    const totalPages = Math.ceil(totalMessagesCount/limit);
-  
-    return res.status(200).json({
-      success: true,
-      messages: messages.reverse(),
-      totalPages,
-    });
-})
+  const chat = await Chat.findById(chatId);
+
+  if (!chat) return next(new ErrorHandler("Chat not found", 404));
+
+  if (!chat.members.includes(req.user.toString()))
+    return next(
+      new ErrorHandler("You are not allowed to access this chat", 403)
+    );
+
+  const [messages, totalMessagesCount] = await Promise.all([
+    Message.find({ chat: chatId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("sender", "name")
+      .lean(),
+    Message.countDocuments({ chat: chatId }),
+  ]);
+
+  const totalPages = Math.ceil(totalMessagesCount / limit) || 0;
+
+  return res.status(200).json({
+    success: true,
+    messages: messages.reverse(),
+    totalPages,
+  });
+});
 
 
 

@@ -132,7 +132,7 @@ const acceptRequest = TryCatch(async (req, res, next) => {
 
   if (!request) return next(new ErrorHandler("Request not found", 404));
 
-  if (request.receiver._id.toString() !== req.user)
+  if (request.receiver._id.toString() !== req.user.toString())
     return next(
       new ErrorHandler("You are not authorized to accept this request..!", 401)
     );
