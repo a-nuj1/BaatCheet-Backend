@@ -22,7 +22,7 @@ app.post('/message',attachemntsMultur,sendAttachmentsValidator(),validateHandler
 app.get('/message/:id',chatIdValidator(),validateHandler, getMessages);
 
 
-// get chat details
+// get chat details/ rename chat/ delete chat
 app.route('/:id')
 .get(chatIdValidator(),validateHandler,getChatDetails)
 .put(renameValidator(),validateHandler,renameGroup)
