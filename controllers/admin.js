@@ -6,6 +6,7 @@ import { ErrorHandler } from "../utils/utility.js";
 import jwt from "jsonwebtoken";
 import {cookieOptions} from "../utils/features.js";
 import { adminSecretKey } from "../index.js";
+import { tr } from "@faker-js/faker";
 
 
 
@@ -44,7 +45,7 @@ const adminLogout = TryCatch(async (req, res) => {
 // get admin data
 const getAdminData = TryCatch(async (req, res) => {
   return res.status(200).json({
-    success: true,
+    admin:true,
     message: "Admin verified successfully",
   });
 });
@@ -122,83 +123,73 @@ const allMessages = TryCatch(async (req, res) => {
     .populate("sender", "name avatar")
     .populate("chat", "groupChat");
 
+    // console.log(messages);
+
   const transformedMessages = messages.map(
-    ({ content, attachments, _id, sender, chat, createdAt }) => ({
+    ({ content, attachments, _id, sender, createdAt, chat }) => ({
       _id,
+      attachments,
       content,
-      attachments: attachments.map((attachment) => attachment.url),
+      createdAt,
+      chat: chat._id,
+      groupChat: chat.groupChat,
       sender: {
         _id: sender._id,
         name: sender.name,
         avatar: sender.avatar.url,
       },
-      chat: chat._id,
-      groupChat: chat.groupChat,
-      createdAt,
     })
   );
 
   return res.status(200).json({
     success: true,
-    message: "All messages",
     messages: transformedMessages,
   });
 });
 
 const getDashboardStats = TryCatch(async (req, res) => {
-  const [totalUsers, totalChats,groupChat,totalMessages] = await Promise.all([
-    User.countDocuments(),
-    Chat.countDocuments(),
-    Chat.countDocuments({ groupChat: true }),
-    Message.countDocuments(),
-  ]);
+  const [groupsCount, usersCount, messagesCount, totalChatsCount] =
+    await Promise.all([
+      Chat.countDocuments({ groupChat: true }),
+      User.countDocuments(),
+      Message.countDocuments(),
+      Chat.countDocuments(),
+    ]);
 
+  const today = new Date();
 
-    const today = new Date();
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
-    
-    const last7DaysMessages = await Message.find({
-        createdAt: { 
-            $gte: last7Days ,
-            $lte: today
-        },
+  const last7Days = new Date();
+  last7Days.setDate(last7Days.getDate() - 7);
 
-    }).select('createdAt');
+  const last7DaysMessages = await Message.find({
+    createdAt: {
+      $gte: last7Days,
+      $lte: today,
+    },
+  }).select("createdAt");
 
-    
-    const messages = new Array(7).fill(0);
+  const messages = new Array(7).fill(0);
+  const dayInMiliseconds = 1000 * 60 * 60 * 24;
 
+  last7DaysMessages.forEach((message) => {
+    const indexApprox =
+      (today.getTime() - message.createdAt.getTime()) / dayInMiliseconds;
+    const index = Math.floor(indexApprox);
 
-    // If you want to show the distribution based on weekdays
-    // last7DaysMessages.forEach(message => {
-    //     const day = new Date(message.createdAt).getDay();
-    //     messages[day] = messages[day] + 1;
-    // });
+    messages[6 - index]++;
+  });
 
-
-    // messages across the last 7 days in chronological order
-    const dayInMiliSec = 1000 * 60 * 60 * 24;
-    last7DaysMessages.forEach((message) => {
-        const approxInd = (today.getTime()-message.createdAt.getTime())/dayInMiliSec;
-
-        const day = Math.floor(approxInd);
-        messages[6-day]++;
-    });
-
-    const stat = {
-      totalUsers,
-      totalChats,
-      groupChat,
-      totalMessages,
-      messagesChart: messages,
-      
-    }
-
+  const stats = {
+    groupsCount,
+    usersCount,
+    messagesCount,
+    totalChatsCount,
+    messagesChart: messages,
+  };
+  // console.log(stats);
   return res.status(200).json({
     success: true,
-    message: "Dashboard stats",
-    stats: stat,
+    stats,
   });
 });
 

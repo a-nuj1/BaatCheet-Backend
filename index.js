@@ -15,7 +15,7 @@ import { createServer } from 'http';
 import {v2 as cloudinary} from 'cloudinary'
 
 
-import { NEW_MESSAGE, NEW_MESSAGE_ALERT, START_TYPING, STOP_TYPING } from './constants/events.js';
+import { CHAT_JOINED, CHAT_LEFT, NEW_MESSAGE, NEW_MESSAGE_ALERT, ONLINE_USERS, START_TYPING, STOP_TYPING } from './constants/events.js';
 import { v4 as uuid } from 'uuid';
 import { getSockets } from './lib/helper.js';
 import Message from './models/message.js';
@@ -34,6 +34,7 @@ export const adminSecretKey = process.env.ADMIN_SECRET_KEY || "adminhu1234";
 const MONGO_URI = process.env.MONGO_URI;
 
 export const userSockeIDs = new Map();
+export const onlineUsers = new Set();
 
 
 connectDB(MONGO_URI);
@@ -147,10 +148,29 @@ io.on('connection', (socket) => {
     socket.to(membersSockets).emit(STOP_TYPING, {chatId});
   })
   
-  
+  socket.on(CHAT_JOINED, ({userId, members})=>{
+    // console.log("Chat Joined", userId);
+
+    onlineUsers.add(userId.toString());
+
+    const membersSockets = getSockets(members);
+    io.to(membersSockets).emit(ONLINE_USERS, Array.from(onlineUsers));
+
+  });
+  socket.on(CHAT_LEFT, ({userId, members})=>{
+    // console.log("Chat Left", userId);
+
+    onlineUsers.delete(userId.toString());
+
+    const membersSockets = getSockets(members);
+    io.to(membersSockets).emit(ONLINE_USERS, Array.from(onlineUsers));
+
+  });
+
   socket.on('disconnect', () => {
-    console.log('user disconnected');
     userSockeIDs.delete(user._id.toString());
+    onlineUsers.delete(user._id.toString());
+    socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
   });
 
 })
