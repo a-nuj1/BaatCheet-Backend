@@ -75,6 +75,14 @@ const uploadFilesToCloud = async(files=[])=>{
 
 const deleteFilesFromCloud = async(public_ids)=>{
     //delete files from cloud
+    const deletePromises = public_ids.map((public_id)=>{
+        return new Promise((resolve, reject)=>{
+            cloudinary.uploader.destroy(public_id, (err, result)=>{
+                if(err) return reject(err);
+                return resolve(result);
+            });
+        });
+    });
 }
 
 export  {connectDB, sendTokens, emitEvent, deleteFilesFromCloud, uploadFilesToCloud};

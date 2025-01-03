@@ -235,7 +235,6 @@ const sendAttachments = TryCatch(async (req, res, next)=> {
 
   const files = req.files || [];
 
-  console.log(files)
   if(files.length < 1){
     return next(new ErrorHandler("Please provide attachments", 400)); 
   }
@@ -392,6 +391,7 @@ const deleteChat = TryCatch(async(req, res, next)=>{
             public_ids.push(public_id)
         })
     })
+
 
     await Promise.all([
         //deleting files from cloudinary
